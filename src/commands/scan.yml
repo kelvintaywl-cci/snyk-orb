@@ -23,9 +23,10 @@ parameters:
     enum: ["low", "medium", "high", "critical"]
     default: "low"
   fail-on-issues:
-    description: This specifies if builds should be failed or continued based on issues found by Snyk.
-    type: boolean
-    default: true
+    description: |
+      This specifies if builds should be failed or continued based on issues found by Snyk.
+      Assumes an environment variable that holds the boolean value true or false.
+    type: env_var_name
   monitor-on-build:
     description: Take a current application dependencies snapshot for continuous monitoring by Snyk, if test was succesful.
     type: boolean
@@ -110,13 +111,22 @@ steps:
         SNYK_INTEGRATION_VERSION: REPLACE_ORB_VERSION
       command: >
         <<#parameters.test-only-param_dry-run-commands>>function capture() { echo "$@" | tee -a /tmp/dry-run-snyk-commands.txt; }; capture<</parameters.test-only-param_dry-run-commands>>
-        snyk <<parameters.command>>
-        <<#parameters.docker-image-name>>--docker <<parameters.docker-image-name>><</parameters.docker-image-name>>
-        <<#parameters.severity-threshold>>--severity-threshold=<<parameters.severity-threshold>><</parameters.severity-threshold>>
-        <<#parameters.organization>>--org=<<parameters.organization>><</parameters.organization>>
-        <<#parameters.target-file>>--file=<<parameters.target-file>><</parameters.target-file>>
-        <<parameters.additional-arguments>>
-        <<^parameters.fail-on-issues>> || true<</parameters.fail-on-issues>>
+
+        if [ "$<<parameters.fail-on-issues>>" = true ] ; then
+          snyk <<parameters.command>>
+          <<#parameters.docker-image-name>>--docker <<parameters.docker-image-name>><</parameters.docker-image-name>>
+          <<#parameters.severity-threshold>>--severity-threshold=<<parameters.severity-threshold>><</parameters.severity-threshold>>
+          <<#parameters.organization>>--org=<<parameters.organization>><</parameters.organization>>
+          <<#parameters.target-file>>--file=<<parameters.target-file>><</parameters.target-file>>
+          <<parameters.additional-arguments>>
+        else
+          snyk <<parameters.command>>
+          <<#parameters.docker-image-name>>--docker <<parameters.docker-image-name>><</parameters.docker-image-name>>
+          <<#parameters.severity-threshold>>--severity-threshold=<<parameters.severity-threshold>><</parameters.severity-threshold>>
+          <<#parameters.organization>>--org=<<parameters.organization>><</parameters.organization>>
+          <<#parameters.target-file>>--file=<<parameters.target-file>><</parameters.target-file>>
+          <<parameters.additional-arguments>> || true
+        fi
       no_output_timeout: "<<parameters.no-output-timeout>>"
   # snyk monitor
   - when:
